@@ -1,5 +1,5 @@
-from flask import Flask, request, jsonify
-import tensorflow as tf
+from flask import Flask, request, jsonify # type: ignore
+import tensorflow as tf # type: ignore
 import numpy as np
 from PIL import Image
 import io
