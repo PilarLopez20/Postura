@@ -1,20 +1,24 @@
-import os
-from flask import Flask, request, jsonify
 import tensorflow as tf
 import numpy as np
+from flask import Flask, request, jsonify
 from PIL import Image
 import io
-
-# Forzar uso de CPU
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # Desactiva GPU
 
 app = Flask(__name__)
 
 # Define las clases generales (posturas)
 CLASSES_GENERALES = ["frontal", "posterior", "latDerecho", "latIzquierdo"]
 
-# Carga el modelo directamente desde el archivo .h5
-model = tf.keras.models.load_model('model/modelo_postura_general.h5')
+# Ruta del modelo TensorFlow Lite
+TFLITE_MODEL_PATH = "model/modelo_postura_general.tflite"
+
+# Cargar el intérprete de TensorFlow Lite
+interpreter = tf.lite.Interpreter(model_path=TFLITE_MODEL_PATH)
+interpreter.allocate_tensors()
+
+# Obtener detalles de entrada y salida del modelo
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
 
 def procesar_imagen(imagen_bytes):
     """
@@ -30,26 +34,19 @@ def procesar_imagen(imagen_bytes):
         # Cargar la imagen con PIL
         imagen = Image.open(io.BytesIO(imagen_bytes)).convert('RGB')
         
-        # Redimensionar la imagen a 256x256 (tamaño esperado)
+        # Redimensionar la imagen al tamaño esperado por el modelo
         imagen = imagen.resize((256, 256))
         
         # Convertir la imagen a un numpy array y normalizar
-        imagen_array = np.array(imagen) / 255.0
+        imagen_array = np.array(imagen, dtype=np.float32) / 255.0
         
-        # Flatten (aplanar la imagen) para simular características
-        imagen_flatten = imagen_array.flatten()
+        # Expandir dimensiones para que coincida con la entrada del modelo
+        imagen_array = np.expand_dims(imagen_array, axis=0)
         
-        # Ajustar a 120 coordenadas si es necesario
-        if len(imagen_flatten) < 120:
-            imagen_flatten = np.pad(imagen_flatten, (0, 120 - len(imagen_flatten)), mode='constant')
-        else:
-            imagen_flatten = imagen_flatten[:120]
-        
-        return np.array([imagen_flatten])
+        return imagen_array
     except Exception as e:
         raise ValueError(f"Error procesando la imagen: {str(e)}")
 
-# Ruta principal para comprobar que el servidor está activo
 @app.route('/', methods=['GET'])
 def home():
     return jsonify({
@@ -57,7 +54,6 @@ def home():
         'classes': CLASSES_GENERALES
     })
 
-# Ruta para realizar predicciones a partir de imágenes
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
@@ -66,8 +62,18 @@ def predict():
 
         imagen = request.files['file'].read()
         input_data = procesar_imagen(imagen)
-        predictions = model.predict(input_data)
-        predicted_class = np.argmax(predictions, axis=1)[0]
+
+        # Configurar el tensor de entrada
+        interpreter.set_tensor(input_details[0]['index'], input_data)
+
+        # Ejecutar el modelo
+        interpreter.invoke()
+
+        # Obtener los resultados de salida
+        predictions = interpreter.get_tensor(output_details[0]['index'])
+
+        # Determinar la clase con mayor probabilidad
+        predicted_class = np.argmax(predictions[0])
         predicted_posture = CLASSES_GENERALES[predicted_class]
 
         return jsonify({'prediction': predicted_posture})
@@ -75,6 +81,6 @@ def predict():
         return jsonify({'error': str(e)}), 400
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))  # Render usa la variable de entorno PORT
-    print(f"Running on http://0.0.0.0:{port}")  # Diagnóstico
-    app.run(host='0.0.0.0', port=port, debug=False)  # debug=False para producción
+    port = int(os.environ.get("PORT", 5000))
+    print(f"Running on http://0.0.0.0:{port}")
+    app.run(host='0.0.0.0', port=port, debug=False)
