@@ -1,12 +1,10 @@
-FROM debian:bullseye-slim
+FROM python:3.10-slim
 
 # Establece el directorio de trabajo
 WORKDIR /app
 
-# Instala Python, pip y las dependencias necesarias
+# Instala las dependencias necesarias del sistema
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip \
     build-essential \
     libssl-dev \
     libffi-dev \
@@ -18,10 +16,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY . .
 
 # Actualiza pip
-RUN pip3 install --upgrade pip
+RUN pip install --upgrade pip
 
 # Instala las dependencias del proyecto
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Comando para iniciar la aplicación
 CMD ["sh", "-c", "gunicorn -w 4 -b 0.0.0.0:${PORT:-5000} app:app"]
