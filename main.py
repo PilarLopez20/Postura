@@ -10,7 +10,7 @@ app = Flask(__name__)
 CLASSES_GENERALES = ["frontal", "posterior", "latDerecho", "latIzquierdo"]
 
 # Ruta del modelo TensorFlow Lite
-TFLITE_MODEL_PATH = "model/modelo_postura_general.tflite"
+TFLITE_MODEL_PATH = "model/modelo_posturas_general.tflite"
 
 # Cargar el intérprete de TensorFlow Lite
 interpreter = tf.lite.Interpreter(model_path=TFLITE_MODEL_PATH)
