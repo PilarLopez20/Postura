@@ -1,16 +1,21 @@
-FROM python:3.10-slim
+# Descargar la imafen de ubuntu
 
+FROM ubuntu:22.04
+
+#Actualizar la lista de imagen 
+RUN apt-get update && apt-get upgrade -y
+
+#Actualizar la imagen 
+
+RUN apt-get install -y python3 python3-pip
+
+#Instalar herramientas
+
+RUN apt-get install python3 -y
+
+#Copiar la carpeta webapp
 # Establece el directorio de trabajo
 WORKDIR /main
-
-# Instala las dependencias necesarias del sistema
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libssl-dev \
-    libffi-dev \
-    python3-dev \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
 
 # Copia los archivos del proyecto al contenedor
 COPY . .
@@ -18,8 +23,8 @@ COPY . .
 # Actualiza pip  
 RUN pip install --upgrade pip
 
-# Instala las dependencias del proyecto
-RUN pip install --no-cache-dir -r requirements.txt
+#Instalar las librerias
+RUN pip install -r requirements.txt
 
 # Comando para iniciar la aplicación
 CMD ["sh", "-c", "gunicorn -w 4 -b 0.0.0.0:${PORT:-5000} main:app"]
