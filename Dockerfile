@@ -1,31 +1,24 @@
-# Descargar la imafen de ubuntu
-
+# Base de Ubuntu
 FROM ubuntu:22.04
 
-#Actualizar la lista de imagen 
-RUN apt-get update && apt-get upgrade -y
+# Instalar Python y pip
+RUN apt-get update && apt-get install -y \
+    python3 python3-pip && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-#Actualizar la imagen 
-
-RUN apt-get install -y python3 python3-pip
-
-#Instalar herramientas
-
-RUN apt-get install python3 -y
-
-#Copiar la carpeta webapp
-# Establece el directorio de trabajo
+# Establecer el directorio de trabajo
 WORKDIR /main
 
-# Copia los archivos del proyecto al contenedor
+# Copiar archivos del proyecto
 COPY . .
 
-# Actualiza pip  
+# Actualizar pip e instalar dependencias
 RUN pip install --upgrade pip
-
-#Instalar las librerias
 RUN pip install -r requirements.txt
 
-# Comando para iniciar la aplicación
+# Exponer el puerto 5000
 EXPOSE 5000
-CMD ["sh", "-c", "gunicorn -w 4 -b 0.0.0.0:${PORT:-5000} main:app"]
+
+# Comando para iniciar la aplicación
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "main:app"]

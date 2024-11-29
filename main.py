@@ -1,13 +1,16 @@
-from flask import Flask, request, jsonify # type: ignore
-import tensorflow as tf # type: ignore
+import os
+from flask import Flask, request, jsonify
+import tensorflow as tf
 import numpy as np
 from PIL import Image
 import io
-import os
+
+# Forzar uso de CPU
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # Desactiva GPU
 
 app = Flask(__name__)
 
-# Define las clases generales (posturas) manualmente
+# Define las clases generales (posturas)
 CLASSES_GENERALES = ["frontal", "posterior", "latDerecho", "latIzquierdo"]
 
 # Carga el modelo directamente desde el archivo .h5
@@ -38,10 +41,8 @@ def procesar_imagen(imagen_bytes):
         
         # Ajustar a 120 coordenadas si es necesario
         if len(imagen_flatten) < 120:
-            # Rellenar con ceros si tiene menos de 120 valores
             imagen_flatten = np.pad(imagen_flatten, (0, 120 - len(imagen_flatten)), mode='constant')
         else:
-            # Cortar si tiene más de 120 valores
             imagen_flatten = imagen_flatten[:120]
         
         return np.array([imagen_flatten])
@@ -52,7 +53,7 @@ def procesar_imagen(imagen_bytes):
 @app.route('/', methods=['GET'])
 def home():
     return jsonify({
-        'message': 'Servidor Flask funcionando correctamente en Railway',
+        'message': 'Servidor Flask funcionando correctamente',
         'classes': CLASSES_GENERALES
     })
 
@@ -60,31 +61,20 @@ def home():
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        # Verifica si hay un archivo de imagen en la solicitud
         if 'file' not in request.files:
             return jsonify({'error': 'No se proporcionó ninguna imagen.'}), 400
 
-        # Lee la imagen desde la solicitud
         imagen = request.files['file'].read()
-
-        # Procesa la imagen para extraer características
         input_data = procesar_imagen(imagen)
-
-        # Realiza la predicción
         predictions = model.predict(input_data)
-
-        # Obtiene el índice de la clase con mayor probabilidad
         predicted_class = np.argmax(predictions, axis=1)[0]
-
-        # Traduce el índice a la clase general
         predicted_posture = CLASSES_GENERALES[predicted_class]
 
-        # Devuelve la predicción como JSON
         return jsonify({'prediction': predicted_posture})
     except Exception as e:
         return jsonify({'error': str(e)}), 400
-        
+
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    print(f"Running on http://0.0.0.0:{port}")  # Log de diagnóstico para confirmar el puerto
-    app.run(host='0.0.0.0', port=port, debug=True)
+    port = int(os.environ.get("PORT", 5000))  # Render usa la variable de entorno PORT
+    print(f"Running on http://0.0.0.0:{port}")  # Diagnóstico
+    app.run(host='0.0.0.0', port=port, debug=False)  # debug=False para producción
