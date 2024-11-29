@@ -1,7 +1,8 @@
 FROM debian:bullseye-slim
 
 WORKDIR /app
-
+# Instalar Python, pip y las dependencias necesarias
+RUN apk add --no-cache python3 py3-pip
 COPY . .
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
