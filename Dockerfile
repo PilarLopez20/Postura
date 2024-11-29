@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copia los archivos del proyecto al contenedor
 COPY . .
 
-# Actualiza pip
+# Actualiza pip  
 RUN pip install --upgrade pip
 
 # Instala las dependencias del proyecto
