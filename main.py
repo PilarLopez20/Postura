@@ -83,8 +83,8 @@ def predict():
         return jsonify({'prediction': predicted_posture})
     except Exception as e:
         return jsonify({'error': str(e)}), 400
-
+        
 if __name__ == '__main__':
-    # Railway asigna el puerto como una variable de entorno
-    port = int(os.environ.get("PORT", 5000))  # Usa el puerto 5000 como predeterminado si no se encuentra la variable
+    port = int(os.environ.get("PORT", 5000))
+    print(f"Running on http://0.0.0.0:{port}")  # Log de diagnóstico para confirmar el puerto
     app.run(host='0.0.0.0', port=port, debug=True)
