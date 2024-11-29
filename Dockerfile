@@ -1,4 +1,4 @@
-FROM alpine:3.19
+FROM debian:bullseye-slim
 
 WORKDIR /app
 
