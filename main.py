@@ -3,6 +3,7 @@ import numpy as np
 from flask import Flask, request, jsonify
 from PIL import Image
 import io
+import os
 
 app = Flask(__name__)
 
@@ -22,30 +23,32 @@ output_details = interpreter.get_output_details()
 
 def procesar_imagen(imagen_bytes):
     """
-    Procesa una imagen para extraer características necesarias para el modelo.
-
-    Args:
-        imagen_bytes (bytes): Imagen en formato binario enviada por el usuario.
-    
-    Returns:
-        np.array: Array procesado con 120 coordenadas (normalizadas).
+    Procesa una imagen y la convierte en un vector plano con las dimensiones esperadas por el modelo.
     """
     try:
-        # Cargar la imagen con PIL
+        # Cargar la imagen
         imagen = Image.open(io.BytesIO(imagen_bytes)).convert('RGB')
-        
-        # Redimensionar la imagen al tamaño esperado por el modelo
+
+        # Redimensionar la imagen (ajusta al tamaño esperado por tu pipeline)
         imagen = imagen.resize((256, 256))
-        
-        # Convertir la imagen a un numpy array y normalizar
+
+        # Convertir la imagen a un numpy array y normalizar los valores
         imagen_array = np.array(imagen, dtype=np.float32) / 255.0
-        
-        # Expandir dimensiones para que coincida con la entrada del modelo
-        imagen_array = np.expand_dims(imagen_array, axis=0)
-        
-        return imagen_array
+
+        # Aplanar la imagen
+        imagen_flatten = imagen_array.flatten()
+
+        # Ajustar las dimensiones a [1, 120] (si es lo que tu modelo espera)
+        if len(imagen_flatten) < 120:
+            imagen_flatten = np.pad(imagen_flatten, (0, 120 - len(imagen_flatten)), mode='constant')
+        elif len(imagen_flatten) > 120:
+            imagen_flatten = imagen_flatten[:120]
+
+        # Regresar el vector con la forma esperada
+        return np.expand_dims(imagen_flatten, axis=0)  # [1, 120]
     except Exception as e:
         raise ValueError(f"Error procesando la imagen: {str(e)}")
+
 
 @app.route('/', methods=['GET'])
 def home():
@@ -63,22 +66,23 @@ def predict():
         imagen = request.files['file'].read()
         input_data = procesar_imagen(imagen)
 
-        # Configurar el tensor de entrada
+        # Configurar los datos de entrada del intérprete
         interpreter.set_tensor(input_details[0]['index'], input_data)
 
-        # Ejecutar el modelo
+        # Realizar la inferencia
         interpreter.invoke()
 
-        # Obtener los resultados de salida
-        predictions = interpreter.get_tensor(output_details[0]['index'])
+        # Obtener los resultados de la predicción
+        output_data = interpreter.get_tensor(output_details[0]['index'])
+        predicted_class = np.argmax(output_data[0])
 
-        # Determinar la clase con mayor probabilidad
-        predicted_class = np.argmax(predictions[0])
+        # Traduce el índice a la clase general
         predicted_posture = CLASSES_GENERALES[predicted_class]
 
         return jsonify({'prediction': predicted_posture})
     except Exception as e:
         return jsonify({'error': str(e)}), 400
+
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
