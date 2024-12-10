@@ -22,14 +22,26 @@ POSE_LANDMARKS = {
 }
 
 def calculate_angle(p1, p2, p3):
-    """Calcula el ángulo entre tres puntos clave."""
+    """
+    Calcula el ángulo entre tres puntos clave.
+    """
     x1, y1 = p1
     x2, y2 = p2
     x3, y3 = p3
+    
+    # Calcular el ángulo en grados
     angle = math.degrees(
         math.atan2(y3 - y2, x3 - x2) - math.atan2(y1 - y2, x1 - x2)
     )
-    return abs(angle)
+    angle = abs(angle)  # Convertir a positivo
+    
+    # Ajustar para que los ángulos estén entre 0° y 180°
+    if angle > 180:
+        angle = 360 - angle
+
+    print(f"DEBUG | Ángulo calculado entre P1={p1}, P2={p2}, P3={p3}: {angle:.2f}°")  # Depuración
+    return angle
+
 
 def calculate_difference(p1, p2):
     """
@@ -62,15 +74,6 @@ def calculate_difference(p1, p2):
     return deviation
 
 
-def classify_lumbar_angle(left_hip, right_hip, reference_point):
-    """Clasifica la región lumbar según el ángulo."""
-    angle = calculate_angle(left_hip, right_hip, reference_point)
-    if angle < 10:
-        return "Curvatura lumbar normal"
-    elif angle < 30:
-        return "Zona lumbar ligeramente hundida"
-    else:
-        return "Zona lumbar muy hundida"
 
 
 def detect_face(image):
@@ -122,21 +125,65 @@ def classify_pose(landmarks, image, image_width, image_height):
     return "Frontal"
 
 
-
 def classify_dorsal_angle(left_shoulder, right_shoulder, reference_point):
-    """Clasifica la región dorsal según el ángulo."""
+    """
+    Clasifica la región dorsal según el ángulo.
+    """
     angle = calculate_angle(left_shoulder, right_shoulder, reference_point)
-    if angle < 10:
+    print(f"DEBUG | Ángulo dorsal: {angle:.2f}°")
+    
+    if angle < 2:  # Umbral más bajo para normal
         return "Curvatura dorsal normal"
-    elif angle < 30:
+    elif angle < 10:  # Rango medio para ligera curvatura
         return "Parte superior de la espalda algo más curvada"
-    else:
+    else:  # Valores altos
         return "Parte superior de la espalda muy curvada"
+
+
+def classify_lumbar_angle(left_hip, right_hip, reference_point):
+    """
+    Clasifica la región lumbar según el ángulo.
+    """
+    angle = calculate_angle(left_hip, right_hip, reference_point)
+    print(f"DEBUG | Ángulo lumbar: {angle:.2f}°")
+    
+    if angle < 2:  # Umbral más bajo para normal
+        return "Curvatura lumbar normal"
+    elif angle < 10:  # Rango medio para ligera curvatura
+        return "Zona lumbar ligeramente hundida"
+    else:  # Valores altos
+        return "Zona lumbar muy hundida"
+
+
+
+def get_dorsal_reference(left_shoulder, right_shoulder):
+    """
+    Calcula un punto de referencia para la región dorsal como el punto medio entre los hombros.
+    """
+    midpoint = [
+        (left_shoulder[0] + right_shoulder[0]) / 2,
+        (left_shoulder[1] + right_shoulder[1]) / 2
+    ]
+    # Depuración: Imprimir el punto de referencia
+    print(f"Dorsal Reference Point: {midpoint}")
+    return midpoint
+
+
+def get_lumbar_reference(left_hip, right_hip):
+    """
+    Calcula un punto de referencia para la región lumbar como el punto medio entre las caderas.
+    """
+    midpoint = [
+        (left_hip[0] + right_hip[0]) / 2,
+        (left_hip[1] + right_hip[1]) / 2
+    ]
+    # Depuración: Imprimir el punto de referencia
+    print(f"Lumbar Reference Point: {midpoint}")
+    return midpoint
 
 
 def analyze_lateral(landmarks, image_width, image_height):
     """Analiza poses laterales: dorsal y lumbar."""
-    # Coordenadas de puntos clave
     left_shoulder = [
         landmarks.landmark[POSE_LANDMARKS["left_shoulder"]].x * image_width,
         landmarks.landmark[POSE_LANDMARKS["left_shoulder"]].y * image_height
@@ -154,12 +201,21 @@ def analyze_lateral(landmarks, image_width, image_height):
         landmarks.landmark[POSE_LANDMARKS["right_hip"]].y * image_height
     ]
 
-    # Clasificación lumbar y dorsal
-    lumbar_label = classify_lumbar_angle(left_hip, right_hip, left_shoulder)
-    dorsal_label = classify_dorsal_angle(left_shoulder, right_shoulder, right_hip)
+    # Depuración de coordenadas
+    print(f"DEBUG | Hombro Izquierdo: {left_shoulder}, Hombro Derecho: {right_shoulder}")
+    print(f"DEBUG | Cadera Izquierda: {left_hip}, Cadera Derecha: {right_hip}")
 
-    # Retornar resultados
+    # Clasificación
+    dorsal_reference = get_dorsal_reference(left_shoulder, right_shoulder)
+    lumbar_reference = get_lumbar_reference(left_hip, right_hip)
+
+    lumbar_label = classify_lumbar_angle(left_hip, right_hip, lumbar_reference)
+    dorsal_label = classify_dorsal_angle(left_shoulder, right_shoulder, dorsal_reference)
+
+    print(f"DEBUG | Dorsal: {dorsal_label}, Lumbar: {lumbar_label}")  # Depuración final
+
     return {"lumbar": lumbar_label, "dorsal": dorsal_label}
+
 
 
 def analyze_column(landmarks, image_width):
@@ -233,7 +289,7 @@ def analyze_frontal(landmarks, image_height, image_width):
 
 
 def analyze_posterior(landmarks, image_height, image_width):
-    """Analiza poses posteriores: caderas, tobillos y columna."""
+    """Analiza poses posteriores: caderas y tobillos."""
     left_hip = [
         landmarks.landmark[POSE_LANDMARKS["left_hip"]].x * image_width,
         landmarks.landmark[POSE_LANDMARKS["left_hip"]].y * image_height
@@ -250,7 +306,6 @@ def analyze_posterior(landmarks, image_height, image_width):
         landmarks.landmark[POSE_LANDMARKS["right_ankle"]].x * image_width,
         landmarks.landmark[POSE_LANDMARKS["right_ankle"]].y * image_height
     ]
-
 
     # Calcular desviación de caderas
     hip_deviation = calculate_difference(left_hip, right_hip)
@@ -270,28 +325,11 @@ def analyze_posterior(landmarks, image_height, image_width):
     else:
         ankle_label = "Tobillos nivelados: 0.0°"
 
-    # Calcular alineación de la columna usando los hombros
-    left_shoulder = [landmarks.landmark[POSE_LANDMARKS["left_shoulder"]].x,
-                     landmarks.landmark[POSE_LANDMARKS["left_shoulder"]].y * image_height]
-    right_shoulder = [landmarks.landmark[POSE_LANDMARKS["right_shoulder"]].x,
-                      landmarks.landmark[POSE_LANDMARKS["right_shoulder"]].y * image_height]
+    # Depuración de resultados
+    print(f"DEBUG | Caderas: {hip_label}")
+    print(f"DEBUG | Tobillos: {ankle_label}")
 
-    column_deviation = calculate_difference(left_shoulder, right_shoulder)
-    if abs(column_deviation) <= 5:
-        column_label = "Columna recta (Correcto)"
-    else:
-        column_label = f"Columna desviada: {abs(column_deviation):.1f}° (Incorrecto)"
-
-    # Clasificar como "Correcto" o "Incorrecto" según el margen de ±5°
-    hip_label += " (Correcto)" if abs(hip_deviation) <= 5 else " (Incorrecto)"
-    ankle_label += " (Correcto)" if abs(ankle_deviation) <= 5 else " (Incorrecto)"
-
-    # Imprimir para depuración
-    print(f"Caderas: {hip_label}")
-    print(f"Tobillos: {ankle_label}")
-    print(f"Columna: {column_label}")
-
-    return {"caderas": hip_label, "tobillos": ankle_label, "columna": column_label}
+    return {"caderas": hip_label, "tobillos": ankle_label}
 
 
 def analyze_pose(landmarks, image, image_height, image_width):
