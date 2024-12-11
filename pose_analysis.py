@@ -66,10 +66,10 @@ def calculate_difference(p1, p2):
     deviation = angle % 180  # Asegura que sea un ángulo entre [0, 180]
 
     # Limitar el ángulo al rango [-15°, 15°] solo para comparación final
-    if deviation > 15:
-        deviation = 15.0
-    elif deviation < -15:
-        deviation = -15.0
+    if deviation > 10:
+        deviation = 12.0
+    elif deviation < -10:
+        deviation = -12.0
 
     return deviation
 
